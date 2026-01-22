@@ -108,9 +108,7 @@
     }
 
     *{ box-sizing:border-box; }
-    html, body{
-      overscroll-behavior: none;
-    }
+    html, body{ overscroll-behavior: none; }
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -500,7 +498,7 @@
       color: rgba(0,0,0,0.88);
     }
 
-    /* On-screen D-pad */
+    /* On-screen D-pad (sidebar) */
     .dpadWrap{
       display:flex;
       gap:12px;
@@ -566,7 +564,7 @@
       inset: 0;
       z-index: 999;
       display: none;
-      padding: 12px 12px 16px;
+      padding: 12px 12px 14px;
       background:
         radial-gradient(1200px 700px at 20% -10%, rgba(110,231,255,0.20), transparent 55%),
         radial-gradient(900px 600px at 90% 0%, rgba(167,139,250,0.18), transparent 50%),
@@ -587,7 +585,7 @@
       border:1px solid var(--border);
       background: linear-gradient(180deg, var(--card), var(--card2));
       box-shadow: var(--shadow);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .gmTitle{
       display:flex;
@@ -610,12 +608,11 @@
       justify-content:flex-end;
     }
 
-    /* IMPORTANT: use real available height units */
     .gmGrid{
       display:grid;
       grid-template-rows: auto 1fr auto;
-      gap: 12px;
-      height: calc(100dvh - 12px - 12px);
+      gap: 10px;
+      height: calc(100dvh - 12px - 14px);
       min-height: 0;
     }
     .gmCenter{
@@ -625,20 +622,54 @@
       min-height: 0;
       overflow: hidden;
     }
+
+    /* NEW: footer is compact, only D-pad (no help text) */
     .gmFooter{
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap: 12px;
+      justify-content:center;
+      gap: 10px;
       flex-wrap: wrap;
+      padding-bottom: 2px;
     }
     .gmFooter .help{
-      margin-top: 0;
-      flex: 1;
-      min-width: 220px;
+      display: none !important;
     }
+
+    /* NEW: smaller D-pad in game mode */
     .gmFooter .dpad{
+      grid-template-columns: repeat(3, 44px);
+      grid-template-rows: repeat(3, 44px);
+      gap: 8px;
+      padding: 8px;
+      border-radius: 16px;
       background: rgba(255,255,255,0.02);
+    }
+    .gmFooter .dpad .btn{
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      font-size: 16px;
+    }
+    .gmFooter .dpad .blank{
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+    }
+
+    @media (max-width: 420px){
+      .gmFooter .dpad{
+        grid-template-columns: repeat(3, 40px);
+        grid-template-rows: repeat(3, 40px);
+        gap: 7px;
+        padding: 7px;
+      }
+      .gmFooter .dpad .btn,
+      .gmFooter .dpad .blank{
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
+      }
     }
 
     body.locked{
@@ -813,6 +844,7 @@
       </div>
 
       <div class="gmFooter" id="gmFooter">
+        <!-- NOTE: help exists in DOM but is hidden in game mode via CSS -->
         <div class="help" id="gmHelp"></div>
 
         <div class="dpad" aria-label="On-screen controls (game mode)">
@@ -1246,55 +1278,39 @@ Svep på brädet, eller använd pilarna.
     paint();
   }
 
-  // ---------- NEW: Fit board to visible space in Game Mode ----------
+  // ---------- Fit board to visible space in Game Mode ----------
   function fitBoardToViewport(){
     if (!inGameMode) return;
 
-    // If user explicitly chose cozy/compact, we respect density *unless* it doesn't fit.
-    // We will compute a "max cell size that fits" and set it inline on gmBoardHost.
-    // This guarantees the whole board is visible.
-
-    const gridRect = gmGrid.getBoundingClientRect();
     const barRect = gmBar.getBoundingClientRect();
     const footerRect = gmFooter.getBoundingClientRect();
 
-    // Available inside overlay: width is viewport minus padding; height is grid height minus bar+footer+gaps
-    const overlayPaddingX = 12*2; // matches .gameMode padding left/right
-    const overlayPaddingY = 12 + 16; // top padding + bottom padding approx
+    const overlayPaddingX = 12*2;
+    const overlayPaddingY = 12 + 14;
 
-    const availableW = Math.max(200, window.innerWidth - overlayPaddingX - 24); // extra safety
+    const availableW = Math.max(200, window.innerWidth - overlayPaddingX - 24);
     const availableH = Math.max(200,
       window.innerHeight
       - overlayPaddingY
       - barRect.height
       - footerRect.height
-      - 12*2 // grid gaps
-      - 24   // extra breathing room
+      - 10*2
+      - 18
     );
 
-    // We include board padding on both sides.
-    // We'll set pad based on cell size (but cap).
     const density = densityEl.value || "auto";
-    const desiredPad = (density === "compact") ? 10 : 12;
+    const desiredPad = (density === "compact") ? 9 : 11;
 
-    // Compute max cell size that fits both width and height:
-    // boardW = cols*cell + 2*pad, boardH = rows*cell + 2*pad
-    // => cell <= (availableW - 2*pad)/cols AND cell <= (availableH - 2*pad)/rows
     const maxCellW = Math.floor((availableW - 2*desiredPad) / cols);
     const maxCellH = Math.floor((availableH - 2*desiredPad) / rows);
     let cell = Math.min(maxCellW, maxCellH);
 
-    // Clamp cell size for usability
     cell = Math.max(10, Math.min(cell, 28));
-
-    // If the user selected cozy/auto, we still cap to what fits.
-    // If the user selected compact, we also ensure it fits (but may become even smaller).
     let pad = Math.max(8, Math.min(desiredPad, Math.floor(cell * 0.7)));
 
     gmBoardHost.style.setProperty("--cell", `${cell}px`);
     gmBoardHost.style.setProperty("--pad", `${pad}px`);
 
-    // Ensure the host doesn't overflow its container
     gmCenterWrap.style.overflow = "hidden";
   }
 
@@ -1365,14 +1381,13 @@ Svep på brädet, eller använd pilarna.
 
     paint();
 
-    // mirror onto the other board so switching doesn't jump
-    const savedActive = {el: activeBoardEl, cells: activeCells, gm: inGameMode};
+    const saved = {el: activeBoardEl, cells: activeCells, gm: inGameMode};
     if (inGameMode){
       activeBoardEl = boardEl; activeCells = mainCells; paint();
-      activeBoardEl = savedActive.el; activeCells = savedActive.cells;
+      activeBoardEl = saved.el; activeCells = saved.cells;
     } else {
       activeBoardEl = gmBoardHost; activeCells = gmCells; paint();
-      activeBoardEl = savedActive.el; activeCells = savedActive.cells;
+      activeBoardEl = saved.el; activeCells = saved.cells;
     }
   }
 
@@ -1386,7 +1401,10 @@ Svep på brädet, eller använd pilarna.
     tryFullscreen(gameMode);
 
     gmTitleText.textContent = "Snake";
-    gmHelp.innerHTML = t().helpHtml;
+
+    // We keep gmHelp in DOM but hidden via CSS (so no text occupies space)
+    gmHelp.innerHTML = "";
+
     syncScore();
 
     const blocker = (e) => {
@@ -1396,7 +1414,6 @@ Svep på brädet, eller använd pilarna.
     gameMode.addEventListener("touchmove", blocker, {passive:false});
     gmBoardHost.addEventListener("touchmove", blocker, {passive:false});
 
-    // NEW: ensure the whole board fits
     fitBoardToViewport();
   }
 
@@ -1415,7 +1432,6 @@ Svep på brädet, eller använd pilarna.
 
     exitFullscreen();
 
-    // Clear inline sizing so desktop board uses normal CSS again
     gmBoardHost.style.removeProperty("--cell");
     gmBoardHost.style.removeProperty("--pad");
 
@@ -1465,8 +1481,8 @@ Svep på brädet, eller använd pilarna.
   let touchStart = null;
   function onTouchStart(e){
     if (!e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    touchStart = {x: t.clientX, y: t.clientY};
+    const t0 = e.touches[0];
+    touchStart = {x: t0.clientX, y: t0.clientY};
   }
   function onTouchEnd(e){
     if (!touchStart) return;
@@ -1513,7 +1529,6 @@ Svep på brädet, eller använd pilarna.
       btnPause.textContent = running ? L.pause : L.resume;
     }
 
-    gmHelp.innerHTML = L.helpHtml;
     syncScore();
 
     if (!started){
@@ -1561,7 +1576,9 @@ Svep på brädet, eller använd pilarna.
     if (wp[1]) wp[1].textContent = L.wrapWrap;
 
     helpText.innerHTML = L.helpHtml;
-    gmHelp.innerHTML = L.helpHtml;
+
+    // In game mode: we keep this empty (and it's hidden via CSS anyway)
+    gmHelp.innerHTML = "";
 
     const isSv = getLang()==="sv";
     langIcon.textContent = isSv ? "🇸🇪" : "🇬🇧";
@@ -1606,7 +1623,6 @@ Svep på brädet, eller använd pilarna.
     if (isMobileish()){
       enterGameMode();
       setActiveBoard(true);
-      // ensure fit after DOM paint
       requestAnimationFrame(() => {
         fitBoardToViewport();
         paint();
@@ -1690,13 +1706,11 @@ Svep på brädet, eller använd pilarna.
 
     document.addEventListener("keydown", onKey, {passive:false});
 
-    // Swipe on both boards
     boardEl.addEventListener("touchstart", onTouchStart, {passive:true});
     boardEl.addEventListener("touchend", onTouchEnd, {passive:true});
     gmBoardHost.addEventListener("touchstart", onTouchStart, {passive:true});
     gmBoardHost.addEventListener("touchend", onTouchEnd, {passive:true});
 
-    // D-pads
     bindDir(btnUp, 0, -1);
     bindDir(btnDown, 0, 1);
     bindDir(btnLeft, -1, 0);
@@ -1768,7 +1782,6 @@ Svep på brädet, eller använd pilarna.
     showOverlay(t().overlayStart);
     showGmOverlay(t().overlayStart);
 
-    // NEW: re-fit on orientation/resize while in game mode
     window.addEventListener("resize", () => {
       if (inGameMode){
         fitBoardToViewport();
@@ -1776,7 +1789,6 @@ Svep på brädet, eller använd pilarna.
       }
     });
 
-    // iOS sometimes changes viewport when address bar collapses; this helps
     window.addEventListener("orientationchange", () => {
       if (inGameMode){
         setTimeout(() => {
