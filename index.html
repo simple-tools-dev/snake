@@ -109,7 +109,7 @@
 
     *{ box-sizing:border-box; }
     html, body{
-      overscroll-behavior: none; /* helps vs pull-to-refresh / bounce */
+      overscroll-behavior: none;
     }
     body{
       margin:0;
@@ -249,8 +249,6 @@
       border-radius: 18px;
       width: fit-content;
       user-select:none;
-
-      /* IMPORTANT: stop browser gestures on the game surface */
       touch-action: none;
 
       background:
@@ -573,9 +571,9 @@
         radial-gradient(1200px 700px at 20% -10%, rgba(110,231,255,0.20), transparent 55%),
         radial-gradient(900px 600px at 90% 0%, rgba(167,139,250,0.18), transparent 50%),
         linear-gradient(180deg, var(--bg), var(--bg2));
-      overflow: hidden; /* critical: no page scroll inside overlay */
+      overflow: hidden;
       overscroll-behavior: none;
-      touch-action: none; /* keep gestures inside */
+      touch-action: none;
     }
     .gameMode[aria-hidden="false"]{ display: block; }
 
@@ -611,17 +609,21 @@
       flex-wrap: wrap;
       justify-content:flex-end;
     }
+
+    /* IMPORTANT: use real available height units */
     .gmGrid{
       display:grid;
       grid-template-rows: auto 1fr auto;
       gap: 12px;
-      height: calc(100dvh - 12px - 12px); /* mobile-friendly viewport */
+      height: calc(100dvh - 12px - 12px);
+      min-height: 0;
     }
     .gmCenter{
       display:flex;
       align-items:center;
       justify-content:center;
       min-height: 0;
+      overflow: hidden;
     }
     .gmFooter{
       display:flex;
@@ -639,7 +641,6 @@
       background: rgba(255,255,255,0.02);
     }
 
-    /* When body is locked (no scrolling) */
     body.locked{
       position: fixed;
       width: 100%;
@@ -782,8 +783,8 @@
 
   <!-- GAME MODE OVERLAY (mobile-first) -->
   <div class="gameMode" id="gameMode" aria-hidden="true" aria-label="Game mode">
-    <div class="gmGrid">
-      <div class="gmBar">
+    <div class="gmGrid" id="gmGrid">
+      <div class="gmBar" id="gmBar">
         <div class="gmTitle">
           <div class="logo" aria-hidden="true" style="width:30px;height:30px;border-radius:12px;"></div>
           <strong id="gmTitleText">Snake</strong>
@@ -802,8 +803,7 @@
         </div>
       </div>
 
-      <div class="gmCenter">
-        <!-- cloned board will be injected here -->
+      <div class="gmCenter" id="gmCenter">
         <div class="msPanel bevel" style="padding:12px; width: fit-content; max-width: 100%;">
           <div class="boardWrap" style="padding: 0;">
             <div class="board" id="gmBoardHost" aria-label="Snake board (game mode)" data-density="auto" style="--cols: 20; --rows: 20;"></div>
@@ -812,7 +812,7 @@
         </div>
       </div>
 
-      <div class="gmFooter">
+      <div class="gmFooter" id="gmFooter">
         <div class="help" id="gmHelp"></div>
 
         <div class="dpad" aria-label="On-screen controls (game mode)">
@@ -821,7 +821,7 @@
           <div class="blank" aria-hidden="true"></div>
 
           <button class="btn" id="gmLeft" type="button" aria-label="Left">←</button>
-          <button class="btn" id="gmCenter" type="button" aria-label="Center" title="Pause/Resume">⏯</button>
+          <button class="btn" id="gmCenterBtn" type="button" aria-label="Center" title="Pause/Resume">⏯</button>
           <button class="btn" id="gmRight" type="button" aria-label="Right">→</button>
 
           <div class="blank" aria-hidden="true"></div>
@@ -1004,6 +1004,11 @@ Svep på brädet, eller använd pilarna.
 
   // Game mode refs
   const gameMode = document.getElementById("gameMode");
+  const gmGrid = document.getElementById("gmGrid");
+  const gmBar = document.getElementById("gmBar");
+  const gmCenterWrap = document.getElementById("gmCenter");
+  const gmFooter = document.getElementById("gmFooter");
+
   const gmTitleText = document.getElementById("gmTitleText");
   const gmScoreText = document.getElementById("gmScoreText");
   const gmBestText = document.getElementById("gmBestText");
@@ -1017,7 +1022,7 @@ Svep på brädet, eller använd pilarna.
   const gmDown = document.getElementById("gmDown");
   const gmLeft = document.getElementById("gmLeft");
   const gmRight = document.getElementById("gmRight");
-  const gmCenter = document.getElementById("gmCenter");
+  const gmCenterBtn = document.getElementById("gmCenterBtn");
 
   // ---------- Helpers ----------
   function setStatus(kind, text){
@@ -1055,7 +1060,7 @@ Svep på brädet, eller använd pilarna.
     return window.matchMedia && window.matchMedia("(max-width: 920px)").matches;
   }
 
-  // Body scroll lock (prevents page moving while swiping)
+  // Body scroll lock
   let lockedScrollY = 0;
   function lockBody(){
     lockedScrollY = window.scrollY || 0;
@@ -1070,29 +1075,24 @@ Svep på brädet, eller använd pilarna.
     window.scrollTo(0, y || 0);
   }
 
-  // Fullscreen attempt (best-effort; overlay is the real solution)
+  // Fullscreen attempt (best-effort)
   async function tryFullscreen(el){
     try{
       const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
       if (req) await req.call(el);
-    } catch(e){
-      // ignore
-    }
+    } catch(e){}
   }
   async function exitFullscreen(){
     try{
       const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
       if (ex) await ex.call(document);
-    } catch(e){
-      // ignore
-    }
+    } catch(e){}
   }
 
   // ---------- Game state ----------
   let cols = 20, rows = 20;
-  let cells = [];
-  let snake = [];          // array of indices, head is [0]
-  let dir = {x: 1, y: 0};  // current direction
+  let snake = [];
+  let dir = {x: 1, y: 0};
   let nextDir = {x: 1, y: 0};
   let foodIdx = -1;
 
@@ -1106,9 +1106,12 @@ Svep på brädet, eller använd pilarna.
   let score = 0;
   let best = Number(localStorage.getItem("snake_best") || 0);
 
-  let activeBoardEl = boardEl; // board we paint into (normal or game mode)
-  let activeCells = [];        // cells for active board
+  let activeBoardEl = boardEl;
+  let activeCells = [];
   let inGameMode = false;
+
+  let mainCells = [];
+  let gmCells = [];
 
   function idxToRC(i){ return { r: Math.floor(i / cols), c: i % cols }; }
   function rcToIdx(r,c){ return r*cols + c; }
@@ -1181,6 +1184,13 @@ Svep på brädet, eller använd pilarna.
     return arr;
   }
 
+  function buildBothBoards(){
+    mainCells = buildBoardInto(boardEl);
+    gmCells = buildBoardInto(gmBoardHost);
+    activeBoardEl = boardEl;
+    activeCells = mainCells;
+  }
+
   function ensureDecorations(cellArr){
     for (const c of cellArr){
       if (c.querySelector(".eyes") && !c.classList.contains("head")) c.querySelector(".eyes").remove();
@@ -1236,109 +1246,59 @@ Svep på brädet, eller använd pilarna.
     paint();
   }
 
-  // Two board DOMs; we render state into whichever is active
-  let mainCells = [];
-  let gmCells = [];
+  // ---------- NEW: Fit board to visible space in Game Mode ----------
+  function fitBoardToViewport(){
+    if (!inGameMode) return;
 
-  function buildBothBoards(){
-    mainCells = buildBoardInto(boardEl);
-    gmCells = buildBoardInto(gmBoardHost);
-    // default active is main
-    activeBoardEl = boardEl;
-    activeCells = mainCells;
+    // If user explicitly chose cozy/compact, we respect density *unless* it doesn't fit.
+    // We will compute a "max cell size that fits" and set it inline on gmBoardHost.
+    // This guarantees the whole board is visible.
+
+    const gridRect = gmGrid.getBoundingClientRect();
+    const barRect = gmBar.getBoundingClientRect();
+    const footerRect = gmFooter.getBoundingClientRect();
+
+    // Available inside overlay: width is viewport minus padding; height is grid height minus bar+footer+gaps
+    const overlayPaddingX = 12*2; // matches .gameMode padding left/right
+    const overlayPaddingY = 12 + 16; // top padding + bottom padding approx
+
+    const availableW = Math.max(200, window.innerWidth - overlayPaddingX - 24); // extra safety
+    const availableH = Math.max(200,
+      window.innerHeight
+      - overlayPaddingY
+      - barRect.height
+      - footerRect.height
+      - 12*2 // grid gaps
+      - 24   // extra breathing room
+    );
+
+    // We include board padding on both sides.
+    // We'll set pad based on cell size (but cap).
+    const density = densityEl.value || "auto";
+    const desiredPad = (density === "compact") ? 10 : 12;
+
+    // Compute max cell size that fits both width and height:
+    // boardW = cols*cell + 2*pad, boardH = rows*cell + 2*pad
+    // => cell <= (availableW - 2*pad)/cols AND cell <= (availableH - 2*pad)/rows
+    const maxCellW = Math.floor((availableW - 2*desiredPad) / cols);
+    const maxCellH = Math.floor((availableH - 2*desiredPad) / rows);
+    let cell = Math.min(maxCellW, maxCellH);
+
+    // Clamp cell size for usability
+    cell = Math.max(10, Math.min(cell, 28));
+
+    // If the user selected cozy/auto, we still cap to what fits.
+    // If the user selected compact, we also ensure it fits (but may become even smaller).
+    let pad = Math.max(8, Math.min(desiredPad, Math.floor(cell * 0.7)));
+
+    gmBoardHost.style.setProperty("--cell", `${cell}px`);
+    gmBoardHost.style.setProperty("--pad", `${pad}px`);
+
+    // Ensure the host doesn't overflow its container
+    gmCenterWrap.style.overflow = "hidden";
   }
 
-  function startGame(){
-    started = true;
-    running = true;
-    gameOver = false;
-
-    score = 0;
-    syncScore();
-
-    setBoardSize();
-    setDensity();
-    buildBothBoards();
-
-    dir = {x:1,y:0};
-    nextDir = {x:1,y:0};
-
-    const startR = Math.floor(rows/2);
-    const startC = Math.floor(cols/2);
-    const head = rcToIdx(startR, startC);
-    snake = [head, head-1, head-2].filter(i => i>=0);
-
-    foodIdx = randomEmptyCell();
-
-    // If mobile-ish, enter game mode for better swipe control
-    if (isMobileish()){
-      enterGameMode();
-      setActiveBoard(true);
-    } else {
-      setActiveBoard(false);
-    }
-
-    paint();
-
-    setStatus("", t().playing);
-    showOverlay(null);
-    showGmOverlay(null);
-
-    clearTimer();
-    timer = setInterval(tick, tickMs);
-
-    btnPause.disabled = false;
-    btnNew.disabled = false;
-    btnReset.disabled = false;
-    syncControlsText();
-  }
-
-  function newGame(){
-    if (!started) return startGame();
-    clearTimer();
-    startGame();
-  }
-
-  function resetToSetup(){
-    clearTimer();
-    started = false;
-    running = false;
-    gameOver = false;
-
-    setBoardSize();
-    setDensity();
-    buildBothBoards();
-    setActiveBoard(false);
-
-    resetGameState();
-
-    btnPause.disabled = true;
-    btnNew.disabled = true;
-    btnReset.disabled = true;
-    syncControlsText();
-    setStatus("", t().beforeStart);
-    showOverlay(t().overlayStart);
-    showGmOverlay(t().overlayStart);
-
-    // leave game mode if it was open
-    if (inGameMode) exitGameMode(true);
-  }
-
-  function pauseToggle(){
-    if (!started || gameOver) return;
-    running = !running;
-    if (running){
-      showOverlay(null);
-      showGmOverlay(null);
-      setStatus("", t().playing);
-    } else {
-      showOverlay(t().overlayPaused);
-      showGmOverlay(t().overlayPaused);
-      setStatus("warn", t().paused);
-    }
-    syncControlsText();
-  }
-
+  // ---------- Game Loop ----------
   function endGame(){
     gameOver = true;
     running = false;
@@ -1403,10 +1363,10 @@ Svep på brädet, eller använd pilarna.
       snake.pop();
     }
 
-    // paint into active board, and also keep the other board in sync
     paint();
+
+    // mirror onto the other board so switching doesn't jump
     const savedActive = {el: activeBoardEl, cells: activeCells, gm: inGameMode};
-    // mirror onto the other board (so switching mode doesn't "jump")
     if (inGameMode){
       activeBoardEl = boardEl; activeCells = mainCells; paint();
       activeBoardEl = savedActive.el; activeCells = savedActive.cells;
@@ -1416,32 +1376,28 @@ Svep på brädet, eller använd pilarna.
     }
   }
 
-  // ---------- Game Mode (overlay) ----------
+  // ---------- Game Mode ----------
   async function enterGameMode(){
     if (inGameMode) return;
     gameMode.setAttribute("aria-hidden", "false");
     lockBody();
     inGameMode = true;
 
-    // best-effort fullscreen
     tryFullscreen(gameMode);
 
-    // make sure text matches current language
     gmTitleText.textContent = "Snake";
     gmHelp.innerHTML = t().helpHtml;
     syncScore();
 
-    // prevent scrolling via touchmove inside overlay/board
-    // (passive:false is required)
     const blocker = (e) => {
-      // only block while overlay visible
       if (gameMode.getAttribute("aria-hidden") === "false") e.preventDefault();
     };
-    // store for later removal
     gameMode._blocker = blocker;
-
     gameMode.addEventListener("touchmove", blocker, {passive:false});
     gmBoardHost.addEventListener("touchmove", blocker, {passive:false});
+
+    // NEW: ensure the whole board fits
+    fitBoardToViewport();
   }
 
   async function exitGameMode(force=false){
@@ -1451,22 +1407,23 @@ Svep på brädet, eller använd pilarna.
     unlockBody();
     inGameMode = false;
 
-    // clean touch blockers
     if (gameMode._blocker){
       try{ gameMode.removeEventListener("touchmove", gameMode._blocker); }catch(e){}
       try{ gmBoardHost.removeEventListener("touchmove", gameMode._blocker); }catch(e){}
       gameMode._blocker = null;
     }
 
-    // exit fullscreen best-effort
     exitFullscreen();
 
-    // return rendering to normal board
+    // Clear inline sizing so desktop board uses normal CSS again
+    gmBoardHost.style.removeProperty("--cell");
+    gmBoardHost.style.removeProperty("--pad");
+
     setActiveBoard(false);
     showGmOverlay(null);
   }
 
-  // ---------- Input ----------
+  // ---------- Controls ----------
   function setDirection(dx, dy){
     if (gameOver) return;
     if (dx === -dir.x && dy === -dir.y) return;
@@ -1474,6 +1431,21 @@ Svep på brädet, eller använd pilarna.
     if (started && !running && !gameOver){
       pauseToggle();
     }
+  }
+
+  function pauseToggle(){
+    if (!started || gameOver) return;
+    running = !running;
+    if (running){
+      showOverlay(null);
+      showGmOverlay(null);
+      setStatus("", t().playing);
+    } else {
+      showOverlay(t().overlayPaused);
+      showGmOverlay(t().overlayPaused);
+      setStatus("warn", t().paused);
+    }
+    syncControlsText();
   }
 
   function onKey(e){
@@ -1489,7 +1461,7 @@ Svep på brädet, eller använd pilarna.
     else if (k === "ArrowRight" || k === "d" || k === "D") { e.preventDefault(); setDirection(1,0); }
   }
 
-  // Touch swipe on board (main and GM)
+  // Touch swipe
   let touchStart = null;
   function onTouchStart(e){
     if (!e.touches || e.touches.length !== 1) return;
@@ -1519,7 +1491,6 @@ Svep på brädet, eller använd pilarna.
     touchStart = null;
   }
 
-  // On-screen buttons
   function bindDir(btn, dx, dy){
     const handler = (e) => {
       e.preventDefault();
@@ -1542,7 +1513,6 @@ Svep på brädet, eller använd pilarna.
       btnPause.textContent = running ? L.pause : L.resume;
     }
 
-    // game mode bits
     gmHelp.innerHTML = L.helpHtml;
     syncScore();
 
@@ -1610,6 +1580,87 @@ Svep på brädet, eller använd pilarna.
     }
   }
 
+  // ---------- Start/Reset ----------
+  function startGame(){
+    started = true;
+    running = true;
+    gameOver = false;
+
+    score = 0;
+    syncScore();
+
+    setBoardSize();
+    setDensity();
+    buildBothBoards();
+
+    dir = {x:1,y:0};
+    nextDir = {x:1,y:0};
+
+    const startR = Math.floor(rows/2);
+    const startC = Math.floor(cols/2);
+    const head = rcToIdx(startR, startC);
+    snake = [head, head-1, head-2].filter(i => i>=0);
+
+    foodIdx = randomEmptyCell();
+
+    if (isMobileish()){
+      enterGameMode();
+      setActiveBoard(true);
+      // ensure fit after DOM paint
+      requestAnimationFrame(() => {
+        fitBoardToViewport();
+        paint();
+      });
+    } else {
+      setActiveBoard(false);
+    }
+
+    paint();
+
+    setStatus("", t().playing);
+    showOverlay(null);
+    showGmOverlay(null);
+
+    clearTimer();
+    timer = setInterval(tick, tickMs);
+
+    btnPause.disabled = false;
+    btnNew.disabled = false;
+    btnReset.disabled = false;
+    syncControlsText();
+  }
+
+  function newGame(){
+    if (!started) return startGame();
+    clearTimer();
+    startGame();
+  }
+
+  function resetToSetup(){
+    clearTimer();
+    started = false;
+    running = false;
+    gameOver = false;
+
+    setBoardSize();
+    setDensity();
+    buildBothBoards();
+    setActiveBoard(false);
+
+    resetGameState();
+
+    btnPause.disabled = true;
+    btnNew.disabled = true;
+    btnReset.disabled = true;
+
+    syncControlsText();
+    setStatus("", t().beforeStart);
+    showOverlay(t().overlayStart);
+    showGmOverlay(t().overlayStart);
+
+    if (inGameMode) exitGameMode(true);
+  }
+
   // ---------- Init ----------
   function init(){
     setLang(getLang());
@@ -1631,7 +1682,6 @@ Svep på brädet, eller använd pilarna.
     best = Number(localStorage.getItem("snake_best") || 0);
     syncScore();
 
-    // initial active board is normal page board
     activeBoardEl = boardEl;
     activeCells = mainCells;
 
@@ -1640,36 +1690,29 @@ Svep på brädet, eller använd pilarna.
 
     document.addEventListener("keydown", onKey, {passive:false});
 
-    // Attach swipe handlers to BOTH boards
+    // Swipe on both boards
     boardEl.addEventListener("touchstart", onTouchStart, {passive:true});
     boardEl.addEventListener("touchend", onTouchEnd, {passive:true});
-
     gmBoardHost.addEventListener("touchstart", onTouchStart, {passive:true});
     gmBoardHost.addEventListener("touchend", onTouchEnd, {passive:true});
 
+    // D-pads
     bindDir(btnUp, 0, -1);
     bindDir(btnDown, 0, 1);
     bindDir(btnLeft, -1, 0);
     bindDir(btnRight, 1, 0);
-
     btnCenter.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
     btnCenter.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
 
-    // Game mode D-pad
     bindDir(gmUp, 0, -1);
     bindDir(gmDown, 0, 1);
     bindDir(gmLeft, -1, 0);
     bindDir(gmRight, 1, 0);
-
-    gmCenter.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
-    gmCenter.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
+    gmCenterBtn.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
+    gmCenterBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
 
     gmPauseBtn.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
-
-    gmCloseBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      await exitGameMode(false);
-    });
+    gmCloseBtn.addEventListener("click", async (e) => { e.preventDefault(); await exitGameMode(false); });
 
     btnStart.addEventListener("click", () => {
       setSpeed();
@@ -1677,14 +1720,12 @@ Svep på brädet, eller använd pilarna.
       localStorage.setItem("snake_density", densityEl.value);
       startGame();
     });
-
     btnNew.addEventListener("click", () => {
       setSpeed();
       setWrapMode();
       localStorage.setItem("snake_density", densityEl.value);
       newGame();
     });
-
     btnPause.addEventListener("click", pauseToggle);
     btnReset.addEventListener("click", resetToSetup);
 
@@ -1727,11 +1768,22 @@ Svep på brädet, eller använd pilarna.
     showOverlay(t().overlayStart);
     showGmOverlay(t().overlayStart);
 
-    // If user rotates/resizes while in game mode, keep board in sync
+    // NEW: re-fit on orientation/resize while in game mode
     window.addEventListener("resize", () => {
-      if (!started) return;
-      // if it becomes desktop-ish, you can still keep game mode;
-      // we leave behavior as-is to avoid surprise exits.
+      if (inGameMode){
+        fitBoardToViewport();
+        paint();
+      }
+    });
+
+    // iOS sometimes changes viewport when address bar collapses; this helps
+    window.addEventListener("orientationchange", () => {
+      if (inGameMode){
+        setTimeout(() => {
+          fitBoardToViewport();
+          paint();
+        }, 250);
+      }
     });
   }
 
