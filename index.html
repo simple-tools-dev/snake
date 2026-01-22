@@ -260,6 +260,10 @@
         inset 1px 1px 0 rgba(255,255,255,0.06),
         inset -1px -1px 0 rgba(0,0,0,0.35);
       overflow: hidden;
+
+      /* NEW: thick black frame (does not affect layout/grid) */
+      outline: 4px solid #000;
+      outline-offset: 0;
     }
     :root[data-theme="light"] .board{
       background:
@@ -829,6 +833,8 @@
             <span class="dot" style="--c: rgba(167,139,250,0.95);"></span>
             <span id="gmBestText">Best: 0</span>
           </div>
+          <!-- NEW: restart directly in Game Mode -->
+          <button class="btn" id="gmNewBtn" type="button">New game</button>
           <button class="btn" id="gmPauseBtn" type="button">⏯</button>
           <button class="btn danger" id="gmCloseBtn" type="button" aria-label="Close game mode">✕</button>
         </div>
@@ -1045,6 +1051,7 @@ Svep på brädet, eller använd pilarna.
   const gmScoreText = document.getElementById("gmScoreText");
   const gmBestText = document.getElementById("gmBestText");
   const gmHelp = document.getElementById("gmHelp");
+  const gmNewBtn = document.getElementById("gmNewBtn");
   const gmPauseBtn = document.getElementById("gmPauseBtn");
   const gmCloseBtn = document.getElementById("gmCloseBtn");
   const gmOverlay = document.getElementById("gmOverlay");
@@ -1090,6 +1097,22 @@ Svep på brädet, eller använd pilarna.
 
   function isMobileish(){
     return window.matchMedia && window.matchMedia("(max-width: 920px)").matches;
+  }
+
+  // NEW: compact Score/Best in narrow portrait (Game Mode bar)
+  function gmShouldCompact(){
+    return inGameMode
+      && window.matchMedia
+      && window.matchMedia("(max-width: 420px) and (orientation: portrait)").matches;
+  }
+  function syncGmScoreBest(){
+    if (gmShouldCompact()){
+      gmScoreText.textContent = `S: ${score}`;
+      gmBestText.textContent = `B: ${best}`;
+    } else {
+      gmScoreText.textContent = t().score(score);
+      gmBestText.textContent = t().best(best);
+    }
   }
 
   // Body scroll lock
@@ -1181,8 +1204,7 @@ Svep på brädet, eller använd pilarna.
   function syncScore(){
     scoreText.textContent = t().score(score);
     bestText.textContent = t().best(best);
-    gmScoreText.textContent = t().score(score);
-    gmBestText.textContent = t().best(best);
+    syncGmScoreBest();
   }
 
   function clearTimer(){
@@ -1437,6 +1459,7 @@ Svep på brädet, eller använd pilarna.
 
     setActiveBoard(false);
     showGmOverlay(null);
+    syncScore();
   }
 
   // ---------- Controls ----------
@@ -1522,6 +1545,7 @@ Svep på brädet, eller använd pilarna.
     btnStart.textContent = L.start;
     btnNew.textContent = L.newGame;
     btnReset.textContent = L.reset;
+    gmNewBtn.textContent = L.newGame;
 
     if (!started || gameOver){
       btnPause.textContent = L.pause;
@@ -1626,6 +1650,7 @@ Svep på brädet, eller använd pilarna.
       requestAnimationFrame(() => {
         fitBoardToViewport();
         paint();
+        syncScore();
       });
     } else {
       setActiveBoard(false);
@@ -1725,6 +1750,13 @@ Svep på brädet, eller använd pilarna.
     gmCenterBtn.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
     gmCenterBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
 
+    gmNewBtn.addEventListener("click", () => {
+      setSpeed();
+      setWrapMode();
+      localStorage.setItem("snake_density", densityEl.value);
+      newGame();
+    });
+
     gmPauseBtn.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
     gmCloseBtn.addEventListener("click", async (e) => { e.preventDefault(); await exitGameMode(false); });
 
@@ -1786,6 +1818,7 @@ Svep på brädet, eller använd pilarna.
       if (inGameMode){
         fitBoardToViewport();
         paint();
+        syncScore();
       }
     });
 
@@ -1794,6 +1827,7 @@ Svep på brädet, eller använd pilarna.
         setTimeout(() => {
           fitBoardToViewport();
           paint();
+          syncScore();
         }, 250);
       }
     });
