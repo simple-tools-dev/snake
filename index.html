@@ -77,15 +77,6 @@
       --mobileCell: 16px;
       --mobilePad: 10px;
 
-      --hintStroke: rgba(110,231,255,0.90);
-      --hintGlow: rgba(110,231,255,0.35);
-      --targetStroke: rgba(167,139,250,0.95);
-      --targetGlow: rgba(167,139,250,0.35);
-      --selectedStroke: rgba(255,255,255,0.92);
-      --selectedGlow: rgba(255,255,255,0.25);
-      --winStroke: rgba(52,211,153,0.95);
-      --winGlow: rgba(52,211,153,0.35);
-
       /* Snake visuals */
       --gridLine: rgba(255,255,255,0.06);
       --snakeHi: rgba(110,231,255,0.70);
@@ -111,21 +102,15 @@
       --ms-hi: rgba(255,255,255,0.75);
       --ms-lo: rgba(0,0,0,0.28);
 
-      --hintStroke: rgba(14,165,233,0.95);
-      --hintGlow: rgba(14,165,233,0.26);
-      --targetStroke: rgba(124,58,237,0.95);
-      --targetGlow: rgba(124,58,237,0.22);
-      --selectedStroke: rgba(0,0,0,0.70);
-      --selectedGlow: rgba(0,0,0,0.18);
-      --winStroke: rgba(22,163,74,0.92);
-      --winGlow: rgba(22,163,74,0.22);
-
       --gridLine: rgba(0,0,0,0.06);
       --snakeStroke: rgba(0,0,0,0.12);
       --foodGlow: rgba(251,113,133,0.12);
     }
 
     *{ box-sizing:border-box; }
+    html, body{
+      overscroll-behavior: none; /* helps vs pull-to-refresh / bounce */
+    }
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -264,9 +249,10 @@
       border-radius: 18px;
       width: fit-content;
       user-select:none;
+
+      /* IMPORTANT: stop browser gestures on the game surface */
       touch-action: none;
 
-      /* "Classic snake" feel: darker playfield + subtle grid */
       background:
         linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.12)),
         radial-gradient(900px 520px at 50% 20%, rgba(110,231,255,0.10), transparent 55%),
@@ -291,7 +277,6 @@
         inset -1px -1px 0 rgba(0,0,0,0.10);
     }
 
-    /* Grid overlay drawn once (instead of per-cell boxes) */
     .board::before{
       content:"";
       position:absolute;
@@ -316,7 +301,6 @@
       .board{ --cell: var(--mobileCell); --pad: var(--mobilePad); }
     }
 
-    /* Cells are now "invisible" - they only host the snake/food shapes */
     .cell{
       width: var(--cell);
       height: var(--cell);
@@ -325,8 +309,6 @@
       border: none;
       border-radius: 0;
     }
-
-    /* Snake segments become "rounded tiles" that connect visually */
     .cell::after{
       content:"";
       position:absolute;
@@ -337,11 +319,9 @@
       transition: opacity .10s ease, transform .10s ease, filter .10s ease;
       pointer-events:none;
     }
-
     .cell.snake::after{
       opacity: 1;
       transform: scale(1);
-
       background:
         radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 55%),
         linear-gradient(180deg, var(--snakeHi), var(--snakeLo));
@@ -352,8 +332,6 @@
         inset 0 -10px 18px rgba(0,0,0,0.35);
       filter: drop-shadow(0 10px 14px rgba(0,0,0,.18));
     }
-
-    /* Head: brighter, glowy, with subtle "eyes" */
     .cell.head::after{
       background:
         radial-gradient(circle at 30% 25%, rgba(255,255,255,0.30), transparent 55%),
@@ -387,7 +365,6 @@
     .cell.head .eyes::before{ left: 38%; }
     .cell.head .eyes::after{ left: 58%; }
 
-    /* Food: apple-ish with highlight and glow */
     .cell.food::after{
       opacity: 1;
       transform: scale(1);
@@ -584,6 +561,91 @@
         border-radius: 14px;
       }
     }
+
+    /* --- GAME MODE OVERLAY (mobile-friendly) --- */
+    .gameMode{
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: none;
+      padding: 12px 12px 16px;
+      background:
+        radial-gradient(1200px 700px at 20% -10%, rgba(110,231,255,0.20), transparent 55%),
+        radial-gradient(900px 600px at 90% 0%, rgba(167,139,250,0.18), transparent 50%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      overflow: hidden; /* critical: no page scroll inside overlay */
+      overscroll-behavior: none;
+      touch-action: none; /* keep gestures inside */
+    }
+    .gameMode[aria-hidden="false"]{ display: block; }
+
+    .gmBar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 10px 10px;
+      border-radius: 16px;
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+    .gmTitle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width: 0;
+    }
+    .gmTitle strong{
+      font-size: 14px;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gmPills{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap: wrap;
+      justify-content:flex-end;
+    }
+    .gmGrid{
+      display:grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+      height: calc(100dvh - 12px - 12px); /* mobile-friendly viewport */
+    }
+    .gmCenter{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height: 0;
+    }
+    .gmFooter{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .gmFooter .help{
+      margin-top: 0;
+      flex: 1;
+      min-width: 220px;
+    }
+    .gmFooter .dpad{
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* When body is locked (no scrolling) */
+    body.locked{
+      position: fixed;
+      width: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
   </style>
 </head>
 
@@ -718,6 +780,58 @@
     </div>
   </div>
 
+  <!-- GAME MODE OVERLAY (mobile-first) -->
+  <div class="gameMode" id="gameMode" aria-hidden="true" aria-label="Game mode">
+    <div class="gmGrid">
+      <div class="gmBar">
+        <div class="gmTitle">
+          <div class="logo" aria-hidden="true" style="width:30px;height:30px;border-radius:12px;"></div>
+          <strong id="gmTitleText">Snake</strong>
+        </div>
+        <div class="gmPills">
+          <div class="pill" title="Score">
+            <span class="dot" style="--c: var(--good);"></span>
+            <span id="gmScoreText">Score: 0</span>
+          </div>
+          <div class="pill" title="Best">
+            <span class="dot" style="--c: rgba(167,139,250,0.95);"></span>
+            <span id="gmBestText">Best: 0</span>
+          </div>
+          <button class="btn" id="gmPauseBtn" type="button">⏯</button>
+          <button class="btn danger" id="gmCloseBtn" type="button" aria-label="Close game mode">✕</button>
+        </div>
+      </div>
+
+      <div class="gmCenter">
+        <!-- cloned board will be injected here -->
+        <div class="msPanel bevel" style="padding:12px; width: fit-content; max-width: 100%;">
+          <div class="boardWrap" style="padding: 0;">
+            <div class="board" id="gmBoardHost" aria-label="Snake board (game mode)" data-density="auto" style="--cols: 20; --rows: 20;"></div>
+            <div class="gameOverlay" id="gmOverlay" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gmFooter">
+        <div class="help" id="gmHelp"></div>
+
+        <div class="dpad" aria-label="On-screen controls (game mode)">
+          <div class="blank" aria-hidden="true"></div>
+          <button class="btn" id="gmUp" type="button" aria-label="Up">↑</button>
+          <div class="blank" aria-hidden="true"></div>
+
+          <button class="btn" id="gmLeft" type="button" aria-label="Left">←</button>
+          <button class="btn" id="gmCenter" type="button" aria-label="Center" title="Pause/Resume">⏯</button>
+          <button class="btn" id="gmRight" type="button" aria-label="Right">→</button>
+
+          <div class="blank" aria-hidden="true"></div>
+          <button class="btn" id="gmDown" type="button" aria-label="Down">↓</button>
+          <div class="blank" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
 (() => {
   const root = document.documentElement;
@@ -776,7 +890,7 @@
       score: (n) => `Score: ${n}`,
       best: (n) => `Best: ${n}`,
 
-      beforeStart: "Pick settings and press Start.\nControls: Arrow keys or WASD.\nOn mobile: use the buttons.",
+      beforeStart: "Pick settings and press Start.\nControls: Arrow keys or WASD.\nOn mobile: use buttons or swipe.",
       playing: "Eat the food. Don't hit the wall or yourself.\nTip: Press Space to pause.",
       paused: "Paused.\nPress Space / ⏯ to resume.",
       gameOver: (score, best) => `Game over!\nScore: ${score}\nBest: ${best}\nPress New game to try again.`,
@@ -786,9 +900,9 @@
       helpHtml: `
 <b>Controls</b><br/>
 Keyboard: <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><br/>
-Pause/Resume: <kbd>Space</kbd> or the ⏯ button<br/><br/>
+Pause/Resume: <kbd>Space</kbd> or ⏯<br/><br/>
 <b>Mobile</b><br/>
-Use the on-screen arrows. You can also swipe anywhere on the board.
+Swipe on the board, or use the on-screen arrows.
       `.trim()
     },
     sv: {
@@ -823,7 +937,7 @@ Use the on-screen arrows. You can also swipe anywhere on the board.
       score: (n) => `Poäng: ${n}`,
       best: (n) => `Rekord: ${n}`,
 
-      beforeStart: "Välj inställningar och tryck Starta.\nKontroller: piltangenter eller WASD.\nPå mobil: använd knapparna.",
+      beforeStart: "Välj inställningar och tryck Starta.\nKontroller: piltangenter eller WASD.\nPå mobil: knappar eller svep.",
       playing: "Ät maten. Krocka inte med vägg eller dig själv.\nTips: Tryck Mellanslag för paus.",
       paused: "Pausat.\nTryck Mellanslag / ⏯ för att fortsätta.",
       gameOver: (score, best) => `Game over!\nPoäng: ${score}\nRekord: ${best}\nTryck Nytt spel för att försöka igen.`,
@@ -833,9 +947,9 @@ Use the on-screen arrows. You can also swipe anywhere on the board.
       helpHtml: `
 <b>Kontroller</b><br/>
 Tangentbord: <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> eller <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><br/>
-Paus/Fortsätt: <kbd>Mellanslag</kbd> eller ⏯-knappen<br/><br/>
+Paus/Fortsätt: <kbd>Mellanslag</kbd> eller ⏯<br/><br/>
 <b>Mobil</b><br/>
-Använd pilarna på sidan. Du kan också svepa över brädet.
+Svep på brädet, eller använd pilarna.
       `.trim()
     }
   };
@@ -888,6 +1002,23 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
   const btnRight = document.getElementById("btnRight");
   const btnCenter = document.getElementById("btnCenter");
 
+  // Game mode refs
+  const gameMode = document.getElementById("gameMode");
+  const gmTitleText = document.getElementById("gmTitleText");
+  const gmScoreText = document.getElementById("gmScoreText");
+  const gmBestText = document.getElementById("gmBestText");
+  const gmHelp = document.getElementById("gmHelp");
+  const gmPauseBtn = document.getElementById("gmPauseBtn");
+  const gmCloseBtn = document.getElementById("gmCloseBtn");
+  const gmOverlay = document.getElementById("gmOverlay");
+  const gmBoardHost = document.getElementById("gmBoardHost");
+
+  const gmUp = document.getElementById("gmUp");
+  const gmDown = document.getElementById("gmDown");
+  const gmLeft = document.getElementById("gmLeft");
+  const gmRight = document.getElementById("gmRight");
+  const gmCenter = document.getElementById("gmCenter");
+
   // ---------- Helpers ----------
   function setStatus(kind, text){
     statusEl.className = `status ${kind||""}`.trim();
@@ -910,6 +1041,53 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     gameOverlay.innerHTML = `<div class="box">${escapeHtml(message)}</div>`;
   }
 
+  function showGmOverlay(message){
+    if (!message){
+      gmOverlay.hidden = true;
+      gmOverlay.innerHTML = "";
+      return;
+    }
+    gmOverlay.hidden = false;
+    gmOverlay.innerHTML = `<div class="box">${escapeHtml(message)}</div>`;
+  }
+
+  function isMobileish(){
+    return window.matchMedia && window.matchMedia("(max-width: 920px)").matches;
+  }
+
+  // Body scroll lock (prevents page moving while swiping)
+  let lockedScrollY = 0;
+  function lockBody(){
+    lockedScrollY = window.scrollY || 0;
+    document.body.classList.add("locked");
+    document.body.style.top = `-${lockedScrollY}px`;
+  }
+  function unlockBody(){
+    document.body.classList.remove("locked");
+    const top = document.body.style.top;
+    document.body.style.top = "";
+    const y = top ? -parseInt(top, 10) : lockedScrollY;
+    window.scrollTo(0, y || 0);
+  }
+
+  // Fullscreen attempt (best-effort; overlay is the real solution)
+  async function tryFullscreen(el){
+    try{
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) await req.call(el);
+    } catch(e){
+      // ignore
+    }
+  }
+  async function exitFullscreen(){
+    try{
+      const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (ex) await ex.call(document);
+    } catch(e){
+      // ignore
+    }
+  }
+
   // ---------- Game state ----------
   let cols = 20, rows = 20;
   let cells = [];
@@ -928,6 +1106,10 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
   let score = 0;
   let best = Number(localStorage.getItem("snake_best") || 0);
 
+  let activeBoardEl = boardEl; // board we paint into (normal or game mode)
+  let activeCells = [];        // cells for active board
+  let inGameMode = false;
+
   function idxToRC(i){ return { r: Math.floor(i / cols), c: i % cols }; }
   function rcToIdx(r,c){ return r*cols + c; }
   function inBounds(r,c){ return r>=0 && r<rows && c>=0 && c<cols; }
@@ -937,12 +1119,16 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     if (v === "small"){ cols = 16; rows = 16; }
     else if (v === "large"){ cols = 24; rows = 24; }
     else { cols = 20; rows = 20; }
+
     boardEl.style.setProperty("--cols", String(cols));
     boardEl.style.setProperty("--rows", String(rows));
+    gmBoardHost.style.setProperty("--cols", String(cols));
+    gmBoardHost.style.setProperty("--rows", String(rows));
   }
 
   function setDensity(){
     boardEl.dataset.density = densityEl.value || "auto";
+    gmBoardHost.dataset.density = densityEl.value || "auto";
   }
 
   function setSpeed(){
@@ -960,6 +1146,8 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
   function syncScore(){
     scoreText.textContent = t().score(score);
     bestText.textContent = t().best(best);
+    gmScoreText.textContent = t().score(score);
+    gmBestText.textContent = t().best(best);
   }
 
   function clearTimer(){
@@ -979,23 +1167,22 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     return empties[Math.floor(Math.random()*empties.length)];
   }
 
-  function buildBoard(){
-    boardEl.innerHTML = "";
-    cells = [];
+  function buildBoardInto(el){
+    el.innerHTML = "";
     const total = cols*rows;
-
+    const arr = [];
     for (let i=0;i<total;i++){
       const d = document.createElement("div");
       d.className = "cell";
       d.dataset.i = String(i);
-      cells.push(d);
-      boardEl.appendChild(d);
+      arr.push(d);
+      el.appendChild(d);
     }
+    return arr;
   }
 
-  function ensureDecorations(){
-    // head eyes & food stem are optional elements, added only when needed
-    for (const c of cells){
+  function ensureDecorations(cellArr){
+    for (const c of cellArr){
       if (c.querySelector(".eyes") && !c.classList.contains("head")) c.querySelector(".eyes").remove();
       if (c.querySelector(".stem") && !c.classList.contains("food")) c.querySelector(".stem").remove();
       if (c.classList.contains("head") && !c.querySelector(".eyes")){
@@ -1008,17 +1195,17 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
   }
 
   function paint(){
-    for (const c of cells){
+    for (const c of activeCells){
       c.classList.remove("snake","head","food");
     }
-    if (foodIdx >= 0 && cells[foodIdx]) cells[foodIdx].classList.add("food");
+    if (foodIdx >= 0 && activeCells[foodIdx]) activeCells[foodIdx].classList.add("food");
     for (let k=0;k<snake.length;k++){
       const idx = snake[k];
-      if (!cells[idx]) continue;
-      cells[idx].classList.add("snake");
-      if (k===0) cells[idx].classList.add("head");
+      if (!activeCells[idx]) continue;
+      activeCells[idx].classList.add("snake");
+      if (k===0) activeCells[idx].classList.add("head");
     }
-    ensureDecorations();
+    ensureDecorations(activeCells);
   }
 
   function resetGameState(){
@@ -1042,6 +1229,25 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     paint();
   }
 
+  function setActiveBoard(isGM){
+    inGameMode = isGM;
+    activeBoardEl = isGM ? gmBoardHost : boardEl;
+    activeCells = isGM ? gmCells : mainCells;
+    paint();
+  }
+
+  // Two board DOMs; we render state into whichever is active
+  let mainCells = [];
+  let gmCells = [];
+
+  function buildBothBoards(){
+    mainCells = buildBoardInto(boardEl);
+    gmCells = buildBoardInto(gmBoardHost);
+    // default active is main
+    activeBoardEl = boardEl;
+    activeCells = mainCells;
+  }
+
   function startGame(){
     started = true;
     running = true;
@@ -1052,7 +1258,7 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
 
     setBoardSize();
     setDensity();
-    buildBoard();
+    buildBothBoards();
 
     dir = {x:1,y:0};
     nextDir = {x:1,y:0};
@@ -1064,10 +1270,19 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
 
     foodIdx = randomEmptyCell();
 
+    // If mobile-ish, enter game mode for better swipe control
+    if (isMobileish()){
+      enterGameMode();
+      setActiveBoard(true);
+    } else {
+      setActiveBoard(false);
+    }
+
     paint();
 
     setStatus("", t().playing);
     showOverlay(null);
+    showGmOverlay(null);
 
     clearTimer();
     timer = setInterval(tick, tickMs);
@@ -1092,7 +1307,9 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
 
     setBoardSize();
     setDensity();
-    buildBoard();
+    buildBothBoards();
+    setActiveBoard(false);
+
     resetGameState();
 
     btnPause.disabled = true;
@@ -1101,6 +1318,10 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     syncControlsText();
     setStatus("", t().beforeStart);
     showOverlay(t().overlayStart);
+    showGmOverlay(t().overlayStart);
+
+    // leave game mode if it was open
+    if (inGameMode) exitGameMode(true);
   }
 
   function pauseToggle(){
@@ -1108,9 +1329,11 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     running = !running;
     if (running){
       showOverlay(null);
+      showGmOverlay(null);
       setStatus("", t().playing);
     } else {
       showOverlay(t().overlayPaused);
+      showGmOverlay(t().overlayPaused);
       setStatus("warn", t().paused);
     }
     syncControlsText();
@@ -1128,6 +1351,7 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     syncScore();
 
     showOverlay(t().overlayOver);
+    showGmOverlay(t().overlayOver);
     setStatus("bad", t().gameOver(score, best));
     syncControlsText();
   }
@@ -1179,19 +1403,74 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
       snake.pop();
     }
 
+    // paint into active board, and also keep the other board in sync
     paint();
+    const savedActive = {el: activeBoardEl, cells: activeCells, gm: inGameMode};
+    // mirror onto the other board (so switching mode doesn't "jump")
+    if (inGameMode){
+      activeBoardEl = boardEl; activeCells = mainCells; paint();
+      activeBoardEl = savedActive.el; activeCells = savedActive.cells;
+    } else {
+      activeBoardEl = gmBoardHost; activeCells = gmCells; paint();
+      activeBoardEl = savedActive.el; activeCells = savedActive.cells;
+    }
+  }
+
+  // ---------- Game Mode (overlay) ----------
+  async function enterGameMode(){
+    if (inGameMode) return;
+    gameMode.setAttribute("aria-hidden", "false");
+    lockBody();
+    inGameMode = true;
+
+    // best-effort fullscreen
+    tryFullscreen(gameMode);
+
+    // make sure text matches current language
+    gmTitleText.textContent = "Snake";
+    gmHelp.innerHTML = t().helpHtml;
+    syncScore();
+
+    // prevent scrolling via touchmove inside overlay/board
+    // (passive:false is required)
+    const blocker = (e) => {
+      // only block while overlay visible
+      if (gameMode.getAttribute("aria-hidden") === "false") e.preventDefault();
+    };
+    // store for later removal
+    gameMode._blocker = blocker;
+
+    gameMode.addEventListener("touchmove", blocker, {passive:false});
+    gmBoardHost.addEventListener("touchmove", blocker, {passive:false});
+  }
+
+  async function exitGameMode(force=false){
+    if (!inGameMode && !force) return;
+
+    gameMode.setAttribute("aria-hidden", "true");
+    unlockBody();
+    inGameMode = false;
+
+    // clean touch blockers
+    if (gameMode._blocker){
+      try{ gameMode.removeEventListener("touchmove", gameMode._blocker); }catch(e){}
+      try{ gmBoardHost.removeEventListener("touchmove", gameMode._blocker); }catch(e){}
+      gameMode._blocker = null;
+    }
+
+    // exit fullscreen best-effort
+    exitFullscreen();
+
+    // return rendering to normal board
+    setActiveBoard(false);
+    showGmOverlay(null);
   }
 
   // ---------- Input ----------
   function setDirection(dx, dy){
     if (gameOver) return;
-
-    // no 180° turns
     if (dx === -dir.x && dy === -dir.y) return;
-
     nextDir = {x:dx, y:dy};
-
-    // QoL: if paused, direction resumes
     if (started && !running && !gameOver){
       pauseToggle();
     }
@@ -1210,7 +1489,7 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     else if (k === "ArrowRight" || k === "d" || k === "D") { e.preventDefault(); setDirection(1,0); }
   }
 
-  // Touch swipe on board
+  // Touch swipe on board (main and GM)
   let touchStart = null;
   function onTouchStart(e){
     if (!e.touches || e.touches.length !== 1) return;
@@ -1262,7 +1541,24 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     } else {
       btnPause.textContent = running ? L.pause : L.resume;
     }
+
+    // game mode bits
+    gmHelp.innerHTML = L.helpHtml;
     syncScore();
+
+    if (!started){
+      showOverlay(L.overlayStart);
+      showGmOverlay(L.overlayStart);
+    } else if (gameOver){
+      showOverlay(L.overlayOver);
+      showGmOverlay(L.overlayOver);
+    } else if (!running){
+      showOverlay(L.overlayPaused);
+      showGmOverlay(L.overlayPaused);
+    } else {
+      showOverlay(null);
+      showGmOverlay(null);
+    }
   }
 
   function applyTranslations(){
@@ -1295,6 +1591,7 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     if (wp[1]) wp[1].textContent = L.wrapWrap;
 
     helpText.innerHTML = L.helpHtml;
+    gmHelp.innerHTML = L.helpHtml;
 
     const isSv = getLang()==="sv";
     langIcon.textContent = isSv ? "🇸🇪" : "🇬🇧";
@@ -1304,15 +1601,11 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
 
     if (!started){
       setStatus("", L.beforeStart);
-      showOverlay(L.overlayStart);
     } else if (gameOver){
-      showOverlay(L.overlayOver);
       setStatus("bad", L.gameOver(score, best));
     } else if (!running){
-      showOverlay(L.overlayPaused);
       setStatus("warn", L.paused);
     } else {
-      showOverlay(null);
       setStatus("", L.playing);
     }
   }
@@ -1333,18 +1626,26 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     setSpeed();
     setBoardSize();
     setDensity();
-    buildBoard();
+    buildBothBoards();
 
     best = Number(localStorage.getItem("snake_best") || 0);
     syncScore();
+
+    // initial active board is normal page board
+    activeBoardEl = boardEl;
+    activeCells = mainCells;
 
     resetGameState();
     applyTranslations();
 
     document.addEventListener("keydown", onKey, {passive:false});
 
+    // Attach swipe handlers to BOTH boards
     boardEl.addEventListener("touchstart", onTouchStart, {passive:true});
     boardEl.addEventListener("touchend", onTouchEnd, {passive:true});
+
+    gmBoardHost.addEventListener("touchstart", onTouchStart, {passive:true});
+    gmBoardHost.addEventListener("touchend", onTouchEnd, {passive:true});
 
     bindDir(btnUp, 0, -1);
     bindDir(btnDown, 0, 1);
@@ -1353,6 +1654,22 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
 
     btnCenter.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
     btnCenter.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
+
+    // Game mode D-pad
+    bindDir(gmUp, 0, -1);
+    bindDir(gmDown, 0, 1);
+    bindDir(gmLeft, -1, 0);
+    bindDir(gmRight, 1, 0);
+
+    gmCenter.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
+    gmCenter.addEventListener("pointerdown", (e) => { e.preventDefault(); pauseToggle(); });
+
+    gmPauseBtn.addEventListener("click", (e) => { e.preventDefault(); pauseToggle(); });
+
+    gmCloseBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await exitGameMode(false);
+    });
 
     btnStart.addEventListener("click", () => {
       setSpeed();
@@ -1369,7 +1686,6 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     });
 
     btnPause.addEventListener("click", pauseToggle);
-
     btnReset.addEventListener("click", resetToSetup);
 
     speedEl.addEventListener("change", () => {
@@ -1383,9 +1699,12 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     sizeEl.addEventListener("change", () => {
       if (started) return;
       setBoardSize();
-      buildBoard();
+      buildBothBoards();
+      activeBoardEl = boardEl;
+      activeCells = mainCells;
       resetGameState();
       showOverlay(t().overlayStart);
+      showGmOverlay(t().overlayStart);
     });
 
     densityEl.addEventListener("change", () => {
@@ -1406,6 +1725,14 @@ Använd pilarna på sidan. Du kan också svepa över brädet.
     });
 
     showOverlay(t().overlayStart);
+    showGmOverlay(t().overlayStart);
+
+    // If user rotates/resizes while in game mode, keep board in sync
+    window.addEventListener("resize", () => {
+      if (!started) return;
+      // if it becomes desktop-ish, you can still keep game mode;
+      // we leave behavior as-is to avoid surprise exits.
+    });
   }
 
   init();
