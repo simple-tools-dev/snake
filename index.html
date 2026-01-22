@@ -248,12 +248,12 @@
       width: fit-content;
       user-select:none;
       touch-action: none;
-    
+
       background:
         linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.12)),
         radial-gradient(900px 520px at 50% 20%, rgba(110,231,255,0.10), transparent 55%),
         rgba(0,0,0,0.18);
-    
+
       border: 1px solid rgba(255,255,255,0.12);
       box-shadow:
         var(--shadow),
@@ -261,7 +261,7 @@
         inset -1px -1px 0 rgba(0,0,0,0.35);
       overflow: hidden;
     }
-    
+
     :root[data-theme="light"] .board{
       background:
         linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03)),
@@ -273,7 +273,8 @@
         inset 1px 1px 0 rgba(255,255,255,0.55),
         inset -1px -1px 0 rgba(0,0,0,0.10);
     }
-    
+
+    /* grid layer */
     .board::before{
       content:"";
       position:absolute;
@@ -286,27 +287,29 @@
       background-size: var(--cell) var(--cell);
       opacity: 0.9;
       mix-blend-mode: screen;
+      z-index: 1; /* bombsäkert: grid under vägg & snake */
     }
     :root[data-theme="light"] .board::before{
       opacity: 0.55;
       mix-blend-mode: multiply;
     }
-    
+
     /* === DEADLY WALL (collision boundary) === */
     .board::after{
       content:"";
       position:absolute;
       inset: var(--pad);
       pointer-events:none;
-    
-      border: 4px solid #000;
+
+      border: 4px solid #000;  /* tydlig vägg */
       border-radius: 12px;
-      z-index: 2;
+
+      z-index: 2; /* bombsäkert: ovanför grid, under snake */
     }
     :root[data-theme="light"] .board::after{
       border-color: rgba(0,0,0,0.85);
     }
-       
+
     .board[data-density="cozy"]{ --cell: 20px; --pad: 14px; }
     .board[data-density="compact"]{ --cell: var(--mobileCell); --pad: var(--mobilePad); }
     @media (max-width: 460px){
@@ -320,6 +323,7 @@
       background: transparent;
       border: none;
       border-radius: 0;
+      z-index: 3; /* bombsäkert: snake/food alltid över vägg+grid */
     }
     .cell::after{
       content:"";
@@ -845,7 +849,6 @@
             <span class="dot" style="--c: rgba(167,139,250,0.95);"></span>
             <span id="gmBestText">Best: 0</span>
           </div>
-          <!-- NEW: restart directly in Game Mode -->
           <button class="btn" id="gmNewBtn" type="button">New game</button>
           <button class="btn" id="gmPauseBtn" type="button">⏯</button>
           <button class="btn danger" id="gmCloseBtn" type="button" aria-label="Close game mode">✕</button>
@@ -862,7 +865,6 @@
       </div>
 
       <div class="gmFooter" id="gmFooter">
-        <!-- NOTE: help exists in DOM but is hidden in game mode via CSS -->
         <div class="help" id="gmHelp"></div>
 
         <div class="dpad" aria-label="On-screen controls (game mode)">
@@ -1054,7 +1056,6 @@ Svep på brädet, eller använd pilarna.
 
   // Game mode refs
   const gameMode = document.getElementById("gameMode");
-  const gmGrid = document.getElementById("gmGrid");
   const gmBar = document.getElementById("gmBar");
   const gmCenterWrap = document.getElementById("gmCenter");
   const gmFooter = document.getElementById("gmFooter");
@@ -1111,7 +1112,6 @@ Svep på brädet, eller använd pilarna.
     return window.matchMedia && window.matchMedia("(max-width: 920px)").matches;
   }
 
-  // NEW: compact Score/Best in narrow portrait (Game Mode bar)
   function gmShouldCompact(){
     return inGameMode
       && window.matchMedia
@@ -1435,8 +1435,6 @@ Svep på brädet, eller använd pilarna.
     tryFullscreen(gameMode);
 
     gmTitleText.textContent = "Snake";
-
-    // We keep gmHelp in DOM but hidden via CSS (so no text occupies space)
     gmHelp.innerHTML = "";
 
     syncScore();
@@ -1612,8 +1610,6 @@ Svep på brädet, eller använd pilarna.
     if (wp[1]) wp[1].textContent = L.wrapWrap;
 
     helpText.innerHTML = L.helpHtml;
-
-    // In game mode: we keep this empty (and it's hidden via CSS anyway)
     gmHelp.innerHTML = "";
 
     const isSv = getLang()==="sv";
